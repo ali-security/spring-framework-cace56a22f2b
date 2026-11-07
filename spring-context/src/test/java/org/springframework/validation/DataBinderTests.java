@@ -739,6 +739,88 @@ class DataBinderTests {
 	}
 
 	@Test
+	void bindingWithDisallowedFieldsInTurkishLocale() throws BindException {
+		Locale defaultLocale = Locale.getDefault();
+		Locale.setDefault(new Locale("tr", "TR"));
+		try {
+			Book book = new Book();
+			DataBinder binder = new DataBinder(book);
+			binder.setDisallowedFields("TITLE", "ISBN");
+			assertThat(binder.getDisallowedFields()).containsExactly("title", "isbn");
+
+			MutablePropertyValues pvs = new MutablePropertyValues();
+			pvs.add("title", "my book");
+			pvs.add("iSBN", "1234");
+			pvs.add("nInStock", "5");
+
+			binder.bind(pvs);
+			binder.close();
+
+			assertThat(book.getTitle()).as("did not change title").isNull();
+			assertThat(book.getISBN()).as("did not change ISBN").isNull();
+			assertThat(book.getNInStock()).as("changed nInStock correctly").isEqualTo(5);
+			assertThat(binder.getBindingResult().getSuppressedFields()).containsExactlyInAnyOrder("title", "iSBN");
+		}
+		finally {
+			Locale.setDefault(defaultLocale);
+		}
+	}
+
+	@Test
+	void bindingWithDisallowedFieldsAndMixedCaseFieldNamesInTurkishLocale() throws BindException {
+		Locale defaultLocale = Locale.getDefault();
+		Locale.setDefault(new Locale("tr", "TR"));
+		try {
+			OptionalHolder bean = new OptionalHolder();
+			DataBinder binder = new DataBinder(bean);
+			binder.setConversionService(new DefaultConversionService());
+			binder.setDisallowedFields("id");
+
+			MutablePropertyValues pvs = new MutablePropertyValues();
+			pvs.add("Id", "1");
+			pvs.add("name", "Rod");
+
+			binder.bind(pvs);
+			binder.close();
+
+			assertThat(bean.getId()).as("did not change id").isNull();
+			assertThat(bean.getName()).as("changed name correctly").contains("Rod");
+			assertThat(binder.getBindingResult().getSuppressedFields()).containsExactly("Id");
+		}
+		finally {
+			Locale.setDefault(defaultLocale);
+		}
+	}
+
+	@Test
+	void bindingWithDisallowedMapFieldsInTurkishLocale() throws BindException {
+		Locale defaultLocale = Locale.getDefault();
+		Locale.setDefault(new Locale("tr", "TR"));
+		try {
+			TestBean rod = new TestBean();
+			DataBinder binder = new DataBinder(rod);
+			binder.setDisallowedFields("someMap['KEYID']", "someMap[pin*]");
+
+			MutablePropertyValues pvs = new MutablePropertyValues();
+			pvs.add("someMap[key1]", "value1");
+			pvs.add("someMap[keyid]", "value2");
+			pvs.add("someMap['PIN1']", "value3");
+
+			binder.bind(pvs);
+			binder.close();
+
+			@SuppressWarnings("unchecked")
+			Map<String, String> someMap = (Map<String, String>) rod.getSomeMap();
+			assertThat(someMap).containsOnly(entry("key1", "value1"));
+			assertThat(binder.getBindingResult().getSuppressedFields())
+					.containsExactlyInAnyOrder("someMap[keyid]", "someMap[PIN1]");
+		}
+		finally {
+			Locale.setDefault(defaultLocale);
+		}
+	}
+
+	@Test
 	void bindingWithAllowedFieldsUsingAsterisks() throws BindException {
 		TestBean rod = new TestBean();
 		DataBinder binder = new DataBinder(rod, "person");
